@@ -3,7 +3,6 @@ name: BPB Panel · Auto Sync & Deploy to Cloudflare Pages
 on:
   workflow_dispatch:
   schedule:
-    # 每天 2:30 UTC 触发（换算为北京时间/首尔时间为 11:30）
     - cron: "30 2 * * *"
 
 jobs:
@@ -17,47 +16,22 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Fetch upstream BPB (shallow clone)
+      - name: Fetch upstream BPB
         run: |
           rm -rf upstream
           git clone --depth=1 https://github.com/bia-pain-bache/BPB-Worker-Panel upstream
-          # 记录上游版本/提交，以便在部署信息中标注
           (cd upstream && (git describe --tags --abbrev=0 || git rev-parse --short HEAD)) > .bpb_upstream_version
-
-      # 你有两种用法：
-      # 方式1：直接把 upstream/src 当作静态资源部署（适合不需要本地构建的场景）
-      - name: Prepare static assets (no build)
-        run: |
-          rm -rf ./dist
-          mkdir -p dist
-          rsync -a --delete --exclude ".git" upstream/src/ dist/
-
-      # 如果你需要执行前端构建，请改用下方注释块（需要根据 upstream 的 package.json 调整命令）：
-      # - name: Build (optional)
-      #   run: |
-      #     cd upstream
-      #     corepack enable || true
-      #     if [ -f package-lock.json ]; then npm ci; else npm install; fi
-      #     npm run build
-      #     # 假设构建产物在 upstream/dist
-      #     rm -rf ../dist && mkdir -p ../dist
-      #     rsync -a --delete upstream/dist/ ../dist/
 
       - name: Show upstream version
         run: cat .bpb_upstream_version
 
-      - name: Deploy to Cloudflare Pages (wrangler)
+      - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          # 直接调用 wrangler 的 pages deploy，将 ./dist 作为上传目录
           command: >
-            pages deploy ./dist
+            pages deploy upstream
             --project-name=${{ secrets.CF_PAGES_PROJECT_NAME }}
             --branch=production
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      - name: Create a GitHub Deployment note (optional)
-        run: |
-          echo "Deployed BPB version: $(cat .bpb_upstream_version)"
