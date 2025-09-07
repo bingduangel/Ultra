@@ -3,7 +3,7 @@ name: BPB Panel · Auto Sync & Deploy to Cloudflare Pages
 on:
   workflow_dispatch:
   schedule:
-    - cron: "30 2 * * *"
+    - cron: "30 2 * * *"   # 每天 2:30 UTC 自动执行
 
 jobs:
   deploy:
